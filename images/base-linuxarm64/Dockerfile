@@ -19,31 +19,21 @@ RUN \
         -and -not -name 'libdl.*' \
         -and -not -name 'libc.*' \
         -and -not -name 'libm.*' \
-        -and -not -name 'libmvec.*' \
-        -and -not -name 'librt.*' \
-        -and -not -name 'libpthread.*' \
         -delete && \
     find /opt/ct-ng \
         -name 'libdl.a' \
         -or -name 'libc.a' \
         -or -name 'libm.a' \
-        -or -name 'libmvec.a' \
-        -or -name 'librt.a' \
-        -or -name 'libpthread.a' \
         -delete && \
     mkdir /opt/ffbuild
 
-RUN git clone --filter=blob:none --depth=1 https://github.com/yugr/Implib.so /opt/implib && \
-    sed -i '/^.*\.globl.*/a \ \ .hidden $sym' /opt/implib/arch/*/trampoline.S.tpl
-
 ADD toolchain.cmake /toolchain.cmake
 ADD cross.meson /cross.meson
-ADD gen-implib.sh /usr/bin/gen-implib
 
 ENV PATH="/opt/ct-ng/bin:${PATH}" \
-    FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=x86_64-ffbuild-linux-gnu- --arch=x86_64 --target-os=linux" \
-    FFBUILD_TOOLCHAIN=x86_64-ffbuild-linux-gnu \
-    FFBUILD_CROSS_PREFIX="x86_64-ffbuild-linux-gnu-" \
+    FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=aarch64-ffbuild-linux-gnu- --arch=x86_64 --target-os=linux" \
+    FFBUILD_TOOLCHAIN=aarch64-ffbuild-linux-gnu \
+    FFBUILD_CROSS_PREFIX="aarch64-ffbuild-linux-gnu-" \
     FFBUILD_RUST_TARGET="x86_64-unknown-linux-gnu" \
     FFBUILD_PREFIX=/opt/ffbuild \
     FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake \

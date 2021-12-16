@@ -1,4 +1,4 @@
-ARG GH_REPO=yt-dlp/ffmpeg-builds
+ARG GH_REPO=ytdl-patched/ffmpeg-builds
 FROM ghcr.io/$GH_REPO/base:latest
 
 RUN --mount=src=ct-ng-config,dst=/.config \

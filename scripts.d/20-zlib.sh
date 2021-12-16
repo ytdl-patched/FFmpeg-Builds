@@ -28,7 +28,10 @@ ffbuild_dockerbuild() {
         return -1
     fi
 
-    ./configure "${myconf[@]}"
+    if ! ./configure "${myconf[@]}" ; then
+        cat config.log
+        exit 1
+    fi
     make -j$(nproc)
     make install
 }
