@@ -187,6 +187,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Prune old releases
+        continue-on-error: true
         run: ./util/prunetags.sh
         env:
           GITHUB_TOKEN: ${{ github.token }}
