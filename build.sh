@@ -95,6 +95,12 @@ package_variant ffbuild/prefix "ffbuild/pkgroot/$BUILD_NAME"
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "ffbuild/pkgroot/$BUILD_NAME/LICENSE.txt"
 
 cd ffbuild/pkgroot
+
+if command -v upx ; then
+    upx --best --lzma "$BUILD_NAME"/bin/* || true
+    upx --best --lzma "$BUILD_NAME"/lib/* || true
+fi
+
 if [[ "${TARGET}" == win* ]]; then
     OUTPUT_FNAME="${BUILD_NAME}.zip"
     zip -9 -r "${ARTIFACTS_PATH}/${OUTPUT_FNAME}" "$BUILD_NAME"
