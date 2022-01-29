@@ -1,3 +1,9 @@
+# DO NOT USE
+
+The thing you're looking for is here: https://github.com/yt-dlp/FFmpeg-Builds
+
+Below for original README.
+
 # FFmpeg Static Auto-Builds
 
 

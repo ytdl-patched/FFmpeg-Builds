@@ -91,13 +91,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [win32,win64]
-        variant: [gpl,gpl 5.0,gpl-shared,gpl-shared 5.0]
-        include:
-          - target: linux64
-            variant: gpl
-          - target: linux64
-            variant: gpl 5.0
+        target: [win32,win64,linux64]
+        variant: [gpl,lgpl,nonfree]
+        shared: [-shared, ""]
+        version: ["5.0", ""]
+    env:
+      __variant: ${{ matrix.variant }}${{ matrix.shared }} ${{ matrix.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -112,12 +111,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Generate Dockerfile
-        run: ./generate.sh ${{ matrix.target }} ${{ matrix.variant }}
+        run: ./generate.sh ${{ matrix.target }} ${{ env.__variant }}
       - name: Image Name
         id: imagename
         run: |
-          IMG="ghcr.io/${GITHUB_REPOSITORY,,}/${{ matrix.target }}-${{ matrix.variant }}"
-          echo "::set-output name=name::${IMG/ /-}"
+          IMG="$( echo "ghcr.io/${GITHUB_REPOSITORY,,}/${{ matrix.target }}-${{ env.__variant }}" | xargs | sed 's/ /-/' )"
+          echo "::set-output name=name::${IMG}"
       - name: Stop Commands
         run: T="$(echo -n ${{ github.token }} | sha256sum | head -c 64)" && echo -e "::add-mask::${T}\n::stop-commands::${T}"
       - name: Build target base image
@@ -136,13 +135,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [win32,win64]
-        variant: [gpl,gpl 5.0,gpl-shared,gpl-shared 5.0]
-        include:
-          - target: linux64
-            variant: gpl
-          - target: linux64
-            variant: gpl 5.0
+        target: [win32,win64,linux64]
+        variant: [gpl,lgpl,nonfree]
+        shared: [-shared, ""]
+        version: ["5.0", ""]
+    env:
+      __variant: ${{ matrix.variant }}${{ matrix.shared }} ${{ matrix.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -152,10 +150,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
+      - name: Install UPX
+        continue-on-error: true
+        run: brew install upx
       - name: Build ffmpeg
         run: |
           T="$(echo -n ${{ github.token }} | sha256sum | head -c 64)" && echo -e "::add-mask::${T}\n::stop-commands::${T}"
-          ./build.sh ${{ matrix.target }} ${{ matrix.variant }}
+          ./build.sh ${{ matrix.target }} ${{ env.__variant }}
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
