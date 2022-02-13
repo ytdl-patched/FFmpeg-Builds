@@ -1,0 +1,78 @@
+From d2453569b9ab3adaf0669fe867f0af04c83296a0 Mon Sep 17 00:00:00 2001
+From: Nil Admirari <nil-admirari@mailo.com>
+Date: Wed, 16 Feb 2022 14:11:15 +0300
+Subject: [PATCH 1/6] libavutil/wchar_filename.h: Add whcartoutf8, wchartoansi
+ and utf8toansi
+
+These functions are going to be used in libavformat/avisynth.c
+and fftools/cmdutils.c when replacing MAX_PATH-sized buffers
+with dynamically sized ones.
+---
+ libavutil/wchar_filename.h | 51 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 51 insertions(+)
+
+diff --git a/libavutil/wchar_filename.h b/libavutil/wchar_filename.h
+index 90f0824..70cd5a4 100644
+--- a/libavutil/wchar_filename.h
++++ b/libavutil/wchar_filename.h
+@@ -40,6 +40,57 @@ static inline int utf8towchar(const char *filename_utf8, wchar_t **filename_w)
+     MultiByteToWideChar(CP_UTF8, 0, filename_utf8, -1, *filename_w, num_chars);
+     return 0;
+ }
++
++av_warn_unused_result
++static inline int wchartocp(const unsigned int code_page, const wchar_t *filename_w,
++                            char **filename)
++{
++    const int flags = code_page == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0;
++    const int num_chars = WideCharToMultiByte(code_page, flags, filename_w, -1,
++                                              NULL, 0, NULL, NULL);
++    if (num_chars <= 0) {
++        *filename = NULL;
++        return 0;
++    }
++    *filename = av_calloc(num_chars, sizeof(char));
++    if (!*filename) {
++        errno = ENOMEM;
++        return -1;
++    }
++    WideCharToMultiByte(code_page, flags, filename_w, -1,
++                        *filename, num_chars, NULL, NULL);
++    return 0;
++}
++
++av_warn_unused_result
++static inline int wchartoutf8(const wchar_t *filename_w, char **filename)
++{
++    return wchartocp(CP_UTF8, filename_w, filename);
++}
++
++av_warn_unused_result
++static inline int wchartoansi(const wchar_t *filename_w, char **filename)
++{
++    return wchartocp(CP_THREAD_ACP, filename_w, filename);
++}
++
++av_warn_unused_result
++static inline int utf8toansi(const char *filename_utf8, char **filename)
++{
++    wchar_t *filename_w = NULL;
++    int ret = -1;
++    if (utf8towchar(filename_utf8, &filename_w))
++        return -1;
++
++    if (!filename_w) {
++        *filename = NULL;
++        return 0;
++    }
++
++    ret = wchartoansi(filename_w, filename);
++    av_free(filename_w);
++    return ret;
++}
+ #endif
+ 
+ #endif /* AVUTIL_WCHAR_FILENAME_H */
+-- 
+2.32.0
+

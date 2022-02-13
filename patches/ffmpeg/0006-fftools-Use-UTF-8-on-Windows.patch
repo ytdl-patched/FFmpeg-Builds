@@ -1,0 +1,28 @@
+From e98a0ff97f3b7e517e5da97f17ab2ad5042235c4 Mon Sep 17 00:00:00 2001
+From: Nil Admirari <nil-admirari@mailo.com>
+Date: Fri, 18 Feb 2022 21:34:07 +0300
+Subject: [PATCH 6/6] fftools: Use UTF-8 on Windows
+
+---
+ fftools/fftools.manifest | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/fftools/fftools.manifest b/fftools/fftools.manifest
+index 30b7d8f..d1ac1e4 100644
+--- a/fftools/fftools.manifest
++++ b/fftools/fftools.manifest
+@@ -3,8 +3,10 @@
+ <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+   <assemblyIdentity type="win32" name="FFmpeg" version="1.0.0.0"/>
+   <application xmlns="urn:schemas-microsoft-com:asm.v3">
+-    <windowsSettings xmlns:ws2016="http://schemas.microsoft.com/SMI/2016/WindowsSettings">
++    <windowsSettings xmlns:ws2016="http://schemas.microsoft.com/SMI/2016/WindowsSettings"
++                     xmlns:ws2019="http://schemas.microsoft.com/SMI/2019/WindowsSettings">
+       <ws2016:longPathAware>true</ws2016:longPathAware>
++      <ws2019:activeCodePage>UTF-8</ws2019:activeCodePage>
+     </windowsSettings>
+   </application>
+ </assembly>
+-- 
+2.32.0
+

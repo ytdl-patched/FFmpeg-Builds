@@ -1,0 +1,132 @@
+From c48235013b75fe03884307f183b4831b63cc9f69 Mon Sep 17 00:00:00 2001
+From: Nil Admirari <nil-admirari@mailo.com>
+Date: Wed, 16 Feb 2022 14:21:19 +0300
+Subject: [PATCH 3/6] compat/w32dlfcn.h: Replace MAX_PATH-sized buffers with
+ dynamically sized ones
+
+Also replaces a call to LoadLibraryExA with LoadLibraryExW
+since ANSI functions do not support long paths.
+---
+ compat/w32dlfcn.h | 74 ++++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 61 insertions(+), 13 deletions(-)
+
+diff --git a/compat/w32dlfcn.h b/compat/w32dlfcn.h
+index 52a94ef..a8ac780 100644
+--- a/compat/w32dlfcn.h
++++ b/compat/w32dlfcn.h
+@@ -25,6 +25,30 @@
+ #if (_WIN32_WINNT < 0x0602) || HAVE_WINRT
+ #include "libavutil/wchar_filename.h"
+ #endif
++
++static inline wchar_t *get_module_filename(const HMODULE module)
++{
++    wchar_t *path = NULL;
++    int path_size = 0, path_len = 0;
++
++    do {
++        path_size = path_size ? 1.5 * path_size : MAX_PATH;
++        wchar_t *new_path = av_realloc_array(path, path_size, sizeof *path);
++        if (!new_path) {
++            av_free(path);
++            return NULL;
++        }
++        path = new_path;
++        path_len = GetModuleFileNameW(module, path, path_size);
++    } while (path_len && path_size <= 32768 && path_size <= path_len);
++
++    if (!path_len) {
++        av_free(path);
++        return NULL;
++    }
++    return path;
++}
++
+ /**
+  * Safe function used to open dynamic libs. This attempts to improve program security
+  * by removing the current directory from the dll search path. Only dll's found in the
+@@ -34,28 +58,50 @@
+  */
+ static inline HMODULE win32_dlopen(const char *name)
+ {
++    wchar_t *name_w = NULL;
++    if (utf8towchar(name, &name_w))
++        name_w = NULL;
+ #if _WIN32_WINNT < 0x0602
+     // Need to check if KB2533623 is available
+     if (!GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "SetDefaultDllDirectories")) {
+         HMODULE module = NULL;
+-        wchar_t *path = NULL, *name_w = NULL;
+-        DWORD pathlen;
+-        if (utf8towchar(name, &name_w))
++        wchar_t *path = NULL, *new_path = NULL;
++        DWORD pathlen, pathsize, namelen;
++        if (!name_w)
+             goto exit;
+-        path = (wchar_t *)av_calloc(MAX_PATH, sizeof(wchar_t));
++        namelen = wcslen(name_w);
+         // Try local directory first
+-        pathlen = GetModuleFileNameW(NULL, path, MAX_PATH);
+-        pathlen = wcsrchr(path, '\\') - path;
+-        if (pathlen == 0 || pathlen + wcslen(name_w) + 2 > MAX_PATH)
++        path = get_module_filename(NULL);
++        if (!path)
+             goto exit;
+-        path[pathlen] = '\\';
++        new_path = wcsrchr(path, '\\');
++        if (!new_path)
++            goto exit;
++        pathlen = new_path - path;
++        pathsize = pathlen + namelen + 2;
++        new_path = av_realloc_array(path, pathsize, sizeof *path);
++        if (!new_path)
++            goto exit;
++        path = new_path;
+         wcscpy(path + pathlen + 1, name_w);
+         module = LoadLibraryExW(path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+         if (module == NULL) {
+             // Next try System32 directory
+-            pathlen = GetSystemDirectoryW(path, MAX_PATH);
+-            if (pathlen == 0 || pathlen + wcslen(name_w) + 2 > MAX_PATH)
++            pathlen = GetSystemDirectoryW(path, pathsize);
++            if (!pathlen)
+                 goto exit;
++            if (pathlen + namelen + 2 > pathsize) {
++                pathsize = pathlen + namelen + 2;
++                new_path = av_realloc_array(path, pathsize, sizeof *path);
++                if (!new_path)
++                    goto exit;
++                path = new_path;
++                // The buffer might have been not enough for system directory
++                // in the first place.
++                pathlen = GetSystemDirectoryW(path, pathsize);
++                if (!pathlen)
++                    goto exit;
++            }
+             path[pathlen] = '\\';
+             wcscpy(path + pathlen + 1, name_w);
+             module = LoadLibraryExW(path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+@@ -73,15 +119,17 @@ exit:
+ #   define LOAD_LIBRARY_SEARCH_SYSTEM32        0x00000800
+ #endif
+ #if HAVE_WINRT
+-    wchar_t *name_w = NULL;
+     int ret;
+-    if (utf8towchar(name, &name_w))
++    if (!name_w)
+         return NULL;
+     ret = LoadPackagedLibrary(name_w, 0);
+     av_free(name_w);
+     return ret;
+ #else
+-    return LoadLibraryExA(name, NULL, LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
++    /* filename may be be in CP_ACP */
++    if (!name_w)
++        return LoadLibraryExA(name, NULL, LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
++    return LoadLibraryExW(name_w, NULL, LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
+ #endif
+ }
+ #define dlopen(name, flags) win32_dlopen(name)
+-- 
+2.32.0
+

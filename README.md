@@ -35,6 +35,11 @@ There are currently no MacOS/ARM builds. If you know how to add them to the work
 ## Patches Applied
 These patches have been applied to the builds
 
+#### 1. [Long path support for Windows](https://ffmpeg.org/pipermail/ffmpeg-devel/2022-February/292947.html)
+by [@nihil-admirari](https://github.com/nihil-admirari)
+Fixes [yt-dlp#1995](https://github.com/yt-dlp/yt-dlp/issues/1995), [yt-dlp#1273](https://github.com/yt-dlp/yt-dlp/issues/1273), [FFmpeg#8885](https://trac.ffmpeg.org/ticket/8885)
+
+
 ## Historical Patches
 Patches that were used in the past but are no longer needed
 

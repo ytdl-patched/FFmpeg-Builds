@@ -1,0 +1,116 @@
+From 4d476bdf8cab5feb4f152cfa89bf17d7f3137901 Mon Sep 17 00:00:00 2001
+From: Nil Admirari <nil-admirari@mailo.com>
+Date: Wed, 16 Feb 2022 14:25:07 +0300
+Subject: [PATCH 4/6] fftools/cmdutils.c: Replace MAX_PATH-sized buffers with
+ dynamically sized ones, and fopen with av_fopen_utf8
+
+---
+ fftools/cmdutils.c | 40 ++++++++++++++++++++++++++++++----------
+ 1 file changed, 30 insertions(+), 10 deletions(-)
+
+diff --git a/fftools/cmdutils.c b/fftools/cmdutils.c
+index 4b50e15..e87601e 100644
+--- a/fftools/cmdutils.c
++++ b/fftools/cmdutils.c
+@@ -40,6 +40,7 @@
+ #include "libavutil/attributes.h"
+ #include "libavutil/avassert.h"
+ #include "libavutil/avstring.h"
++#include "libavutil/avutil.h"
+ #include "libavutil/bprint.h"
+ #include "libavutil/channel_layout.h"
+ #include "libavutil/display.h"
+@@ -62,6 +63,7 @@
+ #endif
+ #ifdef _WIN32
+ #include <windows.h>
++#include "compat/w32dlfcn.h"
+ #endif
+ 
+ static int init_report(const char *env);
+@@ -1032,7 +1034,7 @@ static int init_report(const char *env)
+     if (!envlevel)
+         report_file_level = FFMAX(report_file_level, prog_loglevel);
+ 
+-    report_file = fopen(filename.str, "w");
++    report_file = av_fopen_utf8(filename.str, "w");
+     if (!report_file) {
+         int ret = AVERROR(errno);
+         av_log(NULL, AV_LOG_ERROR, "Failed to open report \"%s\": %s\n",
+@@ -2065,28 +2067,43 @@ FILE *get_preset_file(char *filename, size_t filename_size,
+ {
+     FILE *f = NULL;
+     int i;
++#if HAVE_GETMODULEHANDLE && defined(_WIN32)
++    char *datadir = NULL;
++#endif
+     const char *base[3] = { getenv("FFMPEG_DATADIR"),
+                             getenv("HOME"),
+                             FFMPEG_DATADIR, };
+ 
+     if (is_path) {
+         av_strlcpy(filename, preset_name, filename_size);
+-        f = fopen(filename, "r");
++        f = av_fopen_utf8(filename, "r");
+     } else {
+ #if HAVE_GETMODULEHANDLE && defined(_WIN32)
+-        char datadir[MAX_PATH], *ls;
++        wchar_t *datadir_w = get_module_filename(NULL);
+         base[2] = NULL;
+ 
+-        if (GetModuleFileNameA(GetModuleHandleA(NULL), datadir, sizeof(datadir) - 1))
++        if (wchartoutf8(datadir_w, &datadir))
++            datadir = NULL;
++        av_free(datadir_w);
++
++        if (datadir)
+         {
+-            for (ls = datadir; ls < datadir + strlen(datadir); ls++)
++            char *ls;
++            for (ls = datadir; *ls; ls++)
+                 if (*ls == '\\') *ls = '/';
+ 
+             if (ls = strrchr(datadir, '/'))
+             {
+-                *ls = 0;
+-                strncat(datadir, "/ffpresets",  sizeof(datadir) - 1 - strlen(datadir));
+-                base[2] = datadir;
++                const int datadir_len = ls - datadir;
++                const int desired_size = datadir_len + strlen("/ffpresets") + 1;
++                char *new_datadir = av_realloc_array(
++                    datadir, desired_size, sizeof *datadir);
++                if (new_datadir) {
++                    datadir = new_datadir;
++                    datadir[datadir_len] = 0;
++                    strncat(datadir, "/ffpresets",  desired_size - 1 - datadir_len);
++                    base[2] = datadir;
++                }
+             }
+         }
+ #endif
+@@ -2095,17 +2112,20 @@ FILE *get_preset_file(char *filename, size_t filename_size,
+                 continue;
+             snprintf(filename, filename_size, "%s%s/%s.ffpreset", base[i],
+                      i != 1 ? "" : "/.ffmpeg", preset_name);
+-            f = fopen(filename, "r");
++            f = av_fopen_utf8(filename, "r");
+             if (!f && codec_name) {
+                 snprintf(filename, filename_size,
+                          "%s%s/%s-%s.ffpreset",
+                          base[i], i != 1 ? "" : "/.ffmpeg", codec_name,
+                          preset_name);
+-                f = fopen(filename, "r");
++                f = av_fopen_utf8(filename, "r");
+             }
+         }
+     }
+ 
++#if HAVE_GETMODULEHANDLE && defined(_WIN32)
++    av_free(datadir);
++#endif
+     return f;
+ }
+ 
+-- 
+2.32.0
+
